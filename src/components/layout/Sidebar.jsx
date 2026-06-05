@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Users,
@@ -24,6 +24,11 @@ const menuItems = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    router.push("/login");
+  };
 
   return (
     <aside className="fixed left-0 top-0 h-screen w-64 border-r bg-white">
@@ -31,9 +36,15 @@ export default function Sidebar() {
         <div className="rounded-2xl bg-slate-900 p-2 text-white">
           <GraduationCap size={24} />
         </div>
+
         <div>
-          <h1 className="text-xl font-bold text-slate-900">InternHub</h1>
-          <p className="text-xs text-slate-500">Admin Workspace</p>
+          <h1 className="text-xl font-bold text-slate-900">
+            InternHub
+          </h1>
+
+          <p className="text-xs text-slate-500">
+            Admin Workspace
+          </p>
         </div>
       </div>
 
@@ -60,7 +71,10 @@ export default function Sidebar() {
       </nav>
 
       <div className="absolute bottom-0 w-full border-t p-4">
-        <button className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-50">
+        <button
+          onClick={handleLogout}
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-50 transition"
+        >
           <LogOut size={18} />
           Logout
         </button>

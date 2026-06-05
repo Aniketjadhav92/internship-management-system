@@ -1,44 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { GraduationCap, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { GraduationCap } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
+  const [role, setRole] = useState("Admin");
+  const [error, setError] = useState("");
 
-  const handleLogin = (e) => {
-    e.preventDefault();
-
-    let newErrors = {};
-
-    if (!email) {
-      newErrors.email = "Email is required";
+  const handleLogin = () => {
+    if (role === "Admin") {
+      if (email === "admin@internhub.com" && password === "admin123") {
+        setError("");
+        router.push("/dashboard");
+      } else {
+        setError("Invalid Admin Credentials");
+      }
     }
 
-    if (!password) {
-      newErrors.password = "Password is required";
+    if (role === "Intern") {
+      if (email === "intern@internhub.com" && password === "intern123") {
+        setError("");
+        router.push("/intern-dashboard");
+      } else {
+        setError("Invalid Intern Credentials");
+      }
     }
-
-    if (password && password.length < 6) {
-      newErrors.password = "Password must be at least 6 characters";
-    }
-
-    setErrors(newErrors);
-
-    if (Object.keys(newErrors).length > 0) return;
-
-    setLoading(true);
-
-    setTimeout(() => {
-      setLoading(false);
-      router.push("/dashboard");
-    }, 1200);
   };
 
   return (
@@ -54,11 +45,11 @@ export default function LoginPage() {
           </h1>
 
           <p className="mt-2 text-sm text-slate-500">
-            Login to manage interns, attendance and tasks.
+            Internship Management System
           </p>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-5">
+        <div className="space-y-5">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
               Email Address
@@ -66,15 +57,11 @@ export default function LoginPage() {
 
             <input
               type="email"
-              placeholder="admin@internhub.com"
+              placeholder="Enter email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-xl border px-4 py-3 outline-none focus:border-slate-900"
             />
-
-            {errors.email && (
-              <p className="mt-1 text-sm text-red-500">{errors.email}</p>
-            )}
           </div>
 
           <div>
@@ -89,21 +76,36 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-xl border px-4 py-3 outline-none focus:border-slate-900"
             />
-
-            {errors.password && (
-              <p className="mt-1 text-sm text-red-500">{errors.password}</p>
-            )}
           </div>
 
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Role
+            </label>
+
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full rounded-xl border px-4 py-3 outline-none focus:border-slate-900"
+            >
+              <option value="Admin">Admin</option>
+              <option value="Intern">Intern</option>
+            </select>
+          </div>
+
+          {error && (
+            <p className="text-center text-sm text-red-500">
+              {error}
+            </p>
+          )}
+
           <button
-            type="submit"
-            disabled={loading}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-3 font-medium text-white transition hover:bg-slate-800 disabled:opacity-70"
+            onClick={handleLogin}
+            className="w-full rounded-xl bg-slate-900 px-4 py-3 font-medium text-white hover:bg-slate-800"
           >
-            {loading && <Loader2 className="animate-spin" size={18} />}
-            {loading ? "Logging in..." : "Login"}
+            Login
           </button>
-        </form>
+        </div>
 
         <p className="mt-6 text-center text-xs text-slate-400">
           Internship Management System
