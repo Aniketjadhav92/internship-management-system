@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -13,7 +14,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 
-const menuItems = [
+const adminMenuItems = [
   { name: "Dashboard", path: "/dashboard", icon: LayoutDashboard },
   { name: "Interns", path: "/interns", icon: Users },
   { name: "Attendance", path: "/attendance", icon: CalendarCheck },
@@ -22,11 +23,40 @@ const menuItems = [
   { name: "Settings", path: "/settings", icon: Settings },
 ];
 
+const internMenuItems = [
+  { name: "Dashboard", path: "/intern-dashboard", icon: LayoutDashboard },
+  { name: "My Tasks", path: "/my-tasks", icon: ClipboardList },
+  { name: "My Attendance", path: "/my-attendance", icon: CalendarCheck },
+  { name: "My Profile", path: "/my-profile", icon: Users },
+];
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  const handleLogout = () => {
+  const [role, setRole] = useState("Admin");
+
+  useEffect(() => {
+    const storedRole = localStorage.getItem("role");
+
+    if (storedRole) {
+      setRole(storedRole);
+    }
+  }, []);
+
+  const menuItems = role === "Intern" ? internMenuItems : adminMenuItems;
+
+  const handleLogout = async () => {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+    });
+
+    localStorage.removeItem("token");
+    localStorage.removeItem("role");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("userName");
+    localStorage.removeItem("userEmail");
+
     router.push("/login");
   };
 
@@ -38,12 +68,10 @@ export default function Sidebar() {
         </div>
 
         <div>
-          <h1 className="text-xl font-bold text-slate-900">
-            InternHub
-          </h1>
+          <h1 className="text-xl font-bold text-slate-900">InternHub</h1>
 
           <p className="text-xs text-slate-500">
-            Admin Workspace
+            {role === "Intern" ? "Intern Workspace" : "Admin Workspace"}
           </p>
         </div>
       </div>
@@ -73,7 +101,7 @@ export default function Sidebar() {
       <div className="absolute bottom-0 w-full border-t p-4">
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-500 hover:bg-red-50 transition"
+          className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium text-red-500 transition hover:bg-red-50"
         >
           <LogOut size={18} />
           Logout

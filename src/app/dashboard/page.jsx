@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import {
   Users,
@@ -20,39 +21,79 @@ import {
   Cell,
 } from "recharts";
 
-const stats = [
-  { title: "Total Interns", value: "25", growth: "+12%", icon: Users },
-  { title: "Active Interns", value: "20", growth: "+8%", icon: UserCheck },
-  { title: "Pending Tasks", value: "12", growth: "-5%", icon: ClipboardList },
-  { title: "Completed Tasks", value: "48", growth: "+18%", icon: CheckCircle2 },
-  { title: "Attendance Rate", value: "92%", growth: "+4%", icon: CalendarCheck },
-];
-
-const attendanceData = [
-  { month: "Jan", attendance: 72 },
-  { month: "Feb", attendance: 78 },
-  { month: "Mar", attendance: 84 },
-  { month: "Apr", attendance: 80 },
-  { month: "May", attendance: 92 },
-  { month: "Jun", attendance: 88 },
-];
-
-const taskData = [
-  { name: "Pending", value: 12 },
-  { name: "In Progress", value: 18 },
-  { name: "Completed", value: 48 },
-];
-
 const colors = ["#f59e0b", "#3b82f6", "#22c55e"];
 
-const activities = [
-  "New intern added: Rohan Patil",
-  "Attendance marked for today",
-  "Task assigned to Priya Sharma",
-  "UI Design task completed",
-];
-
 export default function DashboardPage() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchDashboard = async () => {
+    try {
+      const res = await fetch("/api/dashboard");
+      const result = await res.json();
+      setData(result);
+    } catch (error) {
+      console.log("Dashboard fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboard();
+  }, []);
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Dashboard">
+        <p className="text-slate-500">Loading dashboard...</p>
+      </DashboardLayout>
+    );
+  }
+
+  const stats = [
+    {
+      title: "Total Interns",
+      value: data?.totalInterns || 0,
+      icon: Users,
+    },
+    {
+      title: "Active Interns",
+      value: data?.activeInterns || 0,
+      icon: UserCheck,
+    },
+    {
+      title: "Pending Tasks",
+      value: data?.pendingTasks || 0,
+      icon: ClipboardList,
+    },
+    {
+      title: "Completed Tasks",
+      value: data?.completedTasks || 0,
+      icon: CheckCircle2,
+    },
+    {
+      title: "Attendance Rate",
+      value: `${data?.attendancePercentage || 0}%`,
+      icon: CalendarCheck,
+    },
+  ];
+
+  const taskData = [
+    {
+      name: "Pending",
+      value: data?.taskStats?.pending || 0,
+    },
+    {
+      name: "In Progress",
+      value: data?.taskStats?.inProgress || 0,
+    },
+    {
+      name: "Completed",
+      value: data?.taskStats?.completed || 0,
+    },
+  ];
+
   return (
     <DashboardLayout title="Dashboard">
       <div className="space-y-6">
@@ -69,9 +110,6 @@ export default function DashboardPage() {
                   <div className="rounded-xl bg-slate-100 p-3 text-slate-700">
                     <Icon size={22} />
                   </div>
-                  <span className="rounded-full bg-green-50 px-2 py-1 text-xs font-medium text-green-600">
-                    {item.growth}
-                  </span>
                 </div>
 
                 <p className="mt-5 text-sm text-slate-500">{item.title}</p>
@@ -94,7 +132,7 @@ export default function DashboardPage() {
 
             <div className="mt-6 h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={attendanceData}>
+                <BarChart data={data?.attendanceAnalytics || []}>
                   <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
@@ -160,15 +198,23 @@ export default function DashboardPage() {
           </h2>
 
           <div className="mt-4 space-y-3">
-            {activities.map((activity, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between rounded-xl border bg-slate-50 px-4 py-3 text-sm"
-              >
-                <span>{activity}</span>
-                <span className="text-xs text-slate-400">Just now</span>
-              </div>
-            ))}
+            {data?.recentActivities?.length > 0 ? (
+              data.recentActivities.map((activity, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between rounded-xl border bg-slate-50 px-4 py-3 text-sm"
+                >
+                  <span>{activity.message}</span>
+                  <span className="text-xs text-slate-400">
+                    {new Date(activity.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-slate-500">
+                No recent activities found.
+              </p>
+            )}
           </div>
         </div>
       </div>

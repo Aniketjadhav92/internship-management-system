@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,57 +14,93 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   CalendarCheck,
   UserCheck,
   UserX,
   Clock,
   Percent,
+  Trash2,
+  Pencil,
 } from "lucide-react";
 
-const interns = ["Rohan Patil", "Priya Sharma", "Amit Kadam"];
-
-const initialAttendance = [
-  {
-    id: 1,
-    internName: "Rohan Patil",
-    date: "2026-02-10",
-    status: "Present",
-  },
-  {
-    id: 2,
-    internName: "Priya Sharma",
-    date: "2026-02-10",
-    status: "Leave",
-  },
-  {
-    id: 3,
-    internName: "Amit Kadam",
-    date: "2026-02-10",
-    status: "Absent",
-  },
-];
-
 export default function AttendancePage() {
-  const [attendance, setAttendance] = useState(initialAttendance);
+  const [attendance, setAttendance] = useState([]);
+  const [interns, setInterns] = useState([]);
+  const [filterStatus, setFilterStatus] = useState("All");
+  const [loading, setLoading] = useState(false);
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedAttendance, setSelectedAttendance] = useState(null);
+
   const [formData, setFormData] = useState({
-    internName: "",
+    intern: "",
     date: "",
     status: "Present",
   });
 
-  const [filterStatus, setFilterStatus] = useState("All");
+  const resetForm = () => {
+    setFormData({
+      intern: "",
+      date: "",
+      status: "Present",
+    });
+  };
+
+  const fetchAttendance = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/attendance");
+      const data = await res.json();
+      setAttendance(data);
+    } catch (error) {
+      console.log("Failed to fetch attendance", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchInterns = async () => {
+    try {
+      const res = await fetch("/api/interns");
+      const data = await res.json();
+      setInterns(data);
+    } catch (error) {
+      console.log("Failed to fetch interns", error);
+    }
+  };
+
+  useEffect(() => {
+    fetchAttendance();
+    fetchInterns();
+  }, []);
 
   const filteredAttendance =
     filterStatus === "All"
       ? attendance
       : attendance.filter((item) => item.status === filterStatus);
 
-  const presentDays = attendance.filter((item) => item.status === "Present").length;
-  const absentDays = attendance.filter((item) => item.status === "Absent").length;
-  const leaveDays = attendance.filter((item) => item.status === "Leave").length;
-  const attendancePercentage = Math.round(
-    (presentDays / attendance.length) * 100
-  );
+  const presentDays = attendance.filter(
+    (item) => item.status === "Present"
+  ).length;
+
+  const absentDays = attendance.filter(
+    (item) => item.status === "Absent"
+  ).length;
+
+  const leaveDays = attendance.filter(
+    (item) => item.status === "Leave"
+  ).length;
+
+  const attendancePercentage =
+    attendance.length > 0
+      ? Math.round((presentDays / attendance.length) * 100)
+      : 0;
 
   const handleChange = (e) => {
     setFormData({
@@ -73,21 +109,101 @@ export default function AttendancePage() {
     });
   };
 
-  const handleMarkAttendance = (e) => {
+  const handleMarkAttendance = async (e) => {
     e.preventDefault();
 
-    const newRecord = {
-      id: Date.now(),
-      ...formData,
-    };
+    try {
+      const res = await fetch("/api/attendance", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
 
-    setAttendance([newRecord, ...attendance]);
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Failed to mark attendance");
+        return;
+      }
+
+      alert("Attendance marked successfully");
+
+      resetForm();
+      fetchAttendance();
+    } catch (error) {
+      console.log(error);
+      alert("Something went wrong");
+    }
+  };
+
+  const handleEditClick = (record) => {
+    setSelectedAttendance(record);
 
     setFormData({
-      internName: "",
-      date: "",
-      status: "Present",
+      intern: record.intern?._id || "",
+      date: record.date ? record.date.split("T")[0] : "",
+      status: record.status || "Present",
     });
+
+    setEditOpen(true);
+  };
+
+  const handleUpdateAttendance = async (e) => {
+    e.preventDefault();
+
+    if (!selectedAttendance) return;
+
+    try {
+      const res = await fetch(`/api/attendance/${selectedAttendance._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Failed to update attendance");
+        return;
+      }
+
+      alert("Attendance updated successfully");
+
+      setEditOpen(false);
+      setSelectedAttendance(null);
+      resetForm();
+      fetchAttendance();
+    } catch (error) {
+      console.log(error);
+      alert("Something went wrong");
+    }
+  };
+
+  const handleDeleteAttendance = async (id) => {
+    if (!confirm("Delete this attendance record?")) return;
+
+    try {
+      const res = await fetch(`/api/attendance/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        alert(data.message || "Failed to delete attendance");
+        return;
+      }
+
+      alert("Attendance deleted successfully");
+      fetchAttendance();
+    } catch (error) {
+      console.log(error);
+      alert("Something went wrong");
+    }
   };
 
   const statusBadge = (status) => {
@@ -119,17 +235,15 @@ export default function AttendancePage() {
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className="rounded-2xl border bg-white p-5 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="rounded-xl bg-green-50 p-3 text-green-600">
-                <UserCheck size={22} />
-              </div>
+            <div className="w-fit rounded-xl bg-green-50 p-3 text-green-600">
+              <UserCheck size={22} />
             </div>
             <p className="mt-4 text-sm text-slate-500">Present Days</p>
             <h2 className="text-3xl font-bold">{presentDays}</h2>
           </div>
 
           <div className="rounded-2xl border bg-white p-5 shadow-sm">
-            <div className="rounded-xl bg-red-50 p-3 text-red-600">
+            <div className="w-fit rounded-xl bg-red-50 p-3 text-red-600">
               <UserX size={22} />
             </div>
             <p className="mt-4 text-sm text-slate-500">Absent Days</p>
@@ -137,7 +251,7 @@ export default function AttendancePage() {
           </div>
 
           <div className="rounded-2xl border bg-white p-5 shadow-sm">
-            <div className="rounded-xl bg-yellow-50 p-3 text-yellow-600">
+            <div className="w-fit rounded-xl bg-yellow-50 p-3 text-yellow-600">
               <Clock size={22} />
             </div>
             <p className="mt-4 text-sm text-slate-500">Leave Days</p>
@@ -145,10 +259,12 @@ export default function AttendancePage() {
           </div>
 
           <div className="rounded-2xl border bg-white p-5 shadow-sm">
-            <div className="rounded-xl bg-blue-50 p-3 text-blue-600">
+            <div className="w-fit rounded-xl bg-blue-50 p-3 text-blue-600">
               <Percent size={22} />
             </div>
-            <p className="mt-4 text-sm text-slate-500">Attendance Percentage</p>
+            <p className="mt-4 text-sm text-slate-500">
+              Attendance Percentage
+            </p>
             <h2 className="text-3xl font-bold">{attendancePercentage}%</h2>
           </div>
         </div>
@@ -169,15 +285,17 @@ export default function AttendancePage() {
 
           <div className="grid gap-4 md:grid-cols-4">
             <select
-              name="internName"
-              value={formData.internName}
+              name="intern"
+              value={formData.intern}
               onChange={handleChange}
               required
               className="rounded-xl border px-4 py-2 text-sm"
             >
               <option value="">Select Intern</option>
               {interns.map((intern) => (
-                <option key={intern}>{intern}</option>
+                <option key={intern._id} value={intern._id}>
+                  {intern.name}
+                </option>
               ))}
             </select>
 
@@ -212,7 +330,7 @@ export default function AttendancePage() {
             <div>
               <h2 className="text-xl font-bold">Attendance Records</h2>
               <p className="text-sm text-slate-500">
-                View and filter attendance history.
+                View, edit and filter attendance history.
               </p>
             </div>
 
@@ -228,26 +346,133 @@ export default function AttendancePage() {
             </select>
           </div>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Intern Name</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-
-            <TableBody>
-              {filteredAttendance.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium">{item.internName}</TableCell>
-                  <TableCell>{item.date}</TableCell>
-                  <TableCell>{statusBadge(item.status)}</TableCell>
+          {loading ? (
+            <p className="text-sm text-slate-500">Loading attendance...</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Intern Name</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Action</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+
+              <TableBody>
+                {filteredAttendance.length > 0 ? (
+                  filteredAttendance.map((item) => (
+                    <TableRow key={item._id}>
+                      <TableCell className="font-medium">
+                        {item.intern?.name || "Unknown"}
+                      </TableCell>
+
+                      <TableCell>
+                        {item.date
+                          ? new Date(item.date).toLocaleDateString()
+                          : "-"}
+                      </TableCell>
+
+                      <TableCell>{statusBadge(item.status)}</TableCell>
+
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            onClick={() => handleEditClick(item)}
+                          >
+                            <Pencil size={16} />
+                          </Button>
+
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            onClick={() => handleDeleteAttendance(item._id)}
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan="4"
+                      className="py-8 text-center text-slate-500"
+                    >
+                      No attendance records found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          )}
         </div>
+
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Attendance</DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleUpdateAttendance} className="space-y-4">
+              <select
+                name="intern"
+                value={formData.intern}
+                onChange={handleChange}
+                required
+                className="w-full rounded-xl border px-4 py-2 text-sm"
+              >
+                <option value="">Select Intern</option>
+                {interns.map((intern) => (
+                  <option key={intern._id} value={intern._id}>
+                    {intern.name}
+                  </option>
+                ))}
+              </select>
+
+              <Input
+                type="date"
+                name="date"
+                value={formData.date}
+                onChange={handleChange}
+                required
+                className="rounded-xl"
+              />
+
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full rounded-xl border px-4 py-2 text-sm"
+              >
+                <option>Present</option>
+                <option>Absent</option>
+                <option>Leave</option>
+              </select>
+
+              <div className="flex justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditOpen(false);
+                    setSelectedAttendance(null);
+                    resetForm();
+                  }}
+                >
+                  Cancel
+                </Button>
+
+                <Button type="submit" className="bg-slate-900">
+                  Update Attendance
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

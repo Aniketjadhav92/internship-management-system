@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,88 +20,153 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Eye, Pencil, Trash2 } from "lucide-react";
-
-const initialTasks = [
-  {
-    id: 1,
-    title: "Build Login UI",
-    intern: "Rohan Patil",
-    priority: "High",
-    status: "Completed",
-    deadline: "2026-02-15",
-  },
-  {
-    id: 2,
-    title: "Create Dashboard Charts",
-    intern: "Priya Sharma",
-    priority: "Medium",
-    status: "In Progress",
-    deadline: "2026-02-20",
-  },
-  {
-    id: 3,
-    title: "MongoDB API Integration",
-    intern: "Amit Kadam",
-    priority: "High",
-    status: "Pending",
-    deadline: "2026-02-25",
-  },
-];
-
-const interns = ["Rohan Patil", "Priya Sharma", "Amit Kadam"];
+import { Plus, Trash2, Pencil } from "lucide-react";
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState(initialTasks);
+  const [tasks, setTasks] = useState([]);
+  const [interns, setInterns] = useState([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("All");
   const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
 
   const [formData, setFormData] = useState({
     title: "",
-    intern: "",
+    description: "",
+    assignedTo: "",
     priority: "Medium",
     status: "Pending",
     deadline: "",
   });
 
-  const filteredTasks = tasks.filter((task) => {
-    const matchesSearch = task.title
-      .toLowerCase()
-      .includes(search.toLowerCase());
-
-    const matchesStatus =
-      filterStatus === "All" || task.status === filterStatus;
-
-    return matchesSearch && matchesStatus;
-  });
-
-  const handleChange = (e) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleCreateTask = (e) => {
-    e.preventDefault();
-
-    const newTask = {
-      id: Date.now(),
-      ...formData,
-    };
-
-    setTasks([newTask, ...tasks]);
-
+  const resetForm = () => {
     setFormData({
       title: "",
-      intern: "",
+      description: "",
+      assignedTo: "",
       priority: "Medium",
       status: "Pending",
       deadline: "",
     });
+  };
 
+  const fetchTasks = async () => {
+    const res = await fetch("/api/tasks");
+    const data = await res.json();
+    setTasks(data);
+  };
+
+  const fetchInterns = async () => {
+    const res = await fetch("/api/interns");
+    const data = await res.json();
+    setInterns(data);
+  };
+
+  useEffect(() => {
+    fetchTasks();
+    fetchInterns();
+  }, []);
+
+  const filteredTasks = tasks.filter((task) => {
+    const matchSearch = task.title
+      ?.toLowerCase()
+      .includes(search.toLowerCase());
+
+    const matchStatus =
+      filterStatus === "All" || task.status === filterStatus;
+
+    return matchSearch && matchStatus;
+  });
+
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleCreateTask = async (e) => {
+    e.preventDefault();
+
+    const res = await fetch("/api/tasks", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formData),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.message || "Failed to create task");
+      return;
+    }
+
+    alert("Task created successfully");
+
+    resetForm();
     setOpen(false);
+    fetchTasks();
+  };
+
+  const handleEditClick = (task) => {
+    setSelectedTask(task);
+
+    setFormData({
+      title: task.title || "",
+      description: task.description || "",
+      assignedTo: task.assignedTo?._id || "",
+      priority: task.priority || "Medium",
+      status: task.status || "Pending",
+      deadline: task.deadline ? task.deadline.split("T")[0] : "",
+    });
+
+    setEditOpen(true);
+  };
+
+  const handleUpdateTask = async (e) => {
+    e.preventDefault();
+
+    if (!selectedTask) return;
+
+    const res = await fetch(`/api/tasks/${selectedTask._id}`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formData),
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.message || "Failed to update task");
+      return;
+    }
+
+    alert("Task updated successfully");
+
+    setEditOpen(false);
+    setSelectedTask(null);
+    resetForm();
+    fetchTasks();
+  };
+
+  const handleDeleteTask = async (id) => {
+    if (!confirm("Delete this task?")) return;
+
+    const res = await fetch(`/api/tasks/${id}`, {
+      method: "DELETE",
+    });
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      alert(data.message || "Failed to delete task");
+      return;
+    }
+
+    alert("Task deleted successfully");
+    fetchTasks();
   };
 
   const priorityBadge = (priority) => {
@@ -161,7 +226,7 @@ export default function TasksPage() {
               Task Management
             </h2>
             <p className="text-sm text-slate-500">
-              Create, assign and monitor intern tasks.
+              Create, assign and monitor intern tasks from MongoDB.
             </p>
           </div>
 
@@ -206,16 +271,26 @@ export default function TasksPage() {
                     required
                   />
 
+                  <Input
+                    name="description"
+                    placeholder="Task Description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    required
+                  />
+
                   <select
-                    name="intern"
-                    value={formData.intern}
+                    name="assignedTo"
+                    value={formData.assignedTo}
                     onChange={handleChange}
                     required
                     className="w-full rounded-xl border px-4 py-2 text-sm"
                   >
                     <option value="">Assign Intern</option>
                     {interns.map((intern) => (
-                      <option key={intern}>{intern}</option>
+                      <option key={intern._id} value={intern._id}>
+                        {intern.name}
+                      </option>
                     ))}
                   </select>
 
@@ -253,7 +328,10 @@ export default function TasksPage() {
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() => setOpen(false)}
+                      onClick={() => {
+                        setOpen(false);
+                        resetForm();
+                      }}
                     >
                       Cancel
                     </Button>
@@ -282,31 +360,149 @@ export default function TasksPage() {
             </TableHeader>
 
             <TableBody>
-              {filteredTasks.map((task) => (
-                <TableRow key={task.id}>
-                  <TableCell className="font-medium">{task.title}</TableCell>
-                  <TableCell>{task.intern}</TableCell>
-                  <TableCell>{priorityBadge(task.priority)}</TableCell>
-                  <TableCell>{statusBadge(task.status)}</TableCell>
-                  <TableCell>{task.deadline}</TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-2">
-                      <Button size="icon" variant="outline">
-                        <Eye size={16} />
-                      </Button>
-                      <Button size="icon" variant="outline">
-                        <Pencil size={16} />
-                      </Button>
-                      <Button size="icon" variant="outline">
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
+              {filteredTasks.length > 0 ? (
+                filteredTasks.map((task) => (
+                  <TableRow key={task._id}>
+                    <TableCell className="font-medium">
+                      {task.title}
+                    </TableCell>
+
+                    <TableCell>
+                      {task.assignedTo?.name || "Not Assigned"}
+                    </TableCell>
+
+                    <TableCell>{priorityBadge(task.priority)}</TableCell>
+                    <TableCell>{statusBadge(task.status)}</TableCell>
+
+                    <TableCell>
+                      {task.deadline
+                        ? new Date(task.deadline).toLocaleDateString()
+                        : "-"}
+                    </TableCell>
+
+                    <TableCell>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() => handleEditClick(task)}
+                        >
+                          <Pencil size={16} />
+                        </Button>
+
+                        <Button
+                          size="icon"
+                          variant="outline"
+                          onClick={() => handleDeleteTask(task._id)}
+                        >
+                          <Trash2 size={16} />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell
+                    colSpan="6"
+                    className="py-8 text-center text-slate-500"
+                  >
+                    No tasks found.
                   </TableCell>
                 </TableRow>
-              ))}
+              )}
             </TableBody>
           </Table>
         </div>
+
+        <Dialog open={editOpen} onOpenChange={setEditOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Task</DialogTitle>
+            </DialogHeader>
+
+            <form onSubmit={handleUpdateTask} className="space-y-4">
+              <Input
+                name="title"
+                placeholder="Task Title"
+                value={formData.title}
+                onChange={handleChange}
+                required
+              />
+
+              <Input
+                name="description"
+                placeholder="Task Description"
+                value={formData.description}
+                onChange={handleChange}
+                required
+              />
+
+              <select
+                name="assignedTo"
+                value={formData.assignedTo}
+                onChange={handleChange}
+                required
+                className="w-full rounded-xl border px-4 py-2 text-sm"
+              >
+                <option value="">Assign Intern</option>
+                {interns.map((intern) => (
+                  <option key={intern._id} value={intern._id}>
+                    {intern.name}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                name="priority"
+                value={formData.priority}
+                onChange={handleChange}
+                className="w-full rounded-xl border px-4 py-2 text-sm"
+              >
+                <option>High</option>
+                <option>Medium</option>
+                <option>Low</option>
+              </select>
+
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full rounded-xl border px-4 py-2 text-sm"
+              >
+                <option>Pending</option>
+                <option>In Progress</option>
+                <option>Completed</option>
+              </select>
+
+              <Input
+                name="deadline"
+                type="date"
+                value={formData.deadline}
+                onChange={handleChange}
+                required
+              />
+
+              <div className="flex justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setEditOpen(false);
+                    setSelectedTask(null);
+                    resetForm();
+                  }}
+                >
+                  Cancel
+                </Button>
+
+                <Button type="submit" className="bg-slate-900">
+                  Update Task
+                </Button>
+              </div>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );

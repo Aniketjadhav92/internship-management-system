@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -20,96 +21,70 @@ import {
   CartesianGrid,
 } from "recharts";
 
-const stats = [
-  {
-    title: "Total Interns",
-    value: "25",
-    icon: Users,
-  },
-  {
-    title: "Active Interns",
-    value: "20",
-    icon: UserCheck,
-  },
-  {
-    title: "Attendance Rate",
-    value: "92%",
-    icon: CalendarCheck,
-  },
-  {
-    title: "Completed Tasks",
-    value: "48",
-    icon: CheckCircle2,
-  },
-];
-
-const attendanceTrend = [
-  { month: "Jan", attendance: 72 },
-  { month: "Feb", attendance: 78 },
-  { month: "Mar", attendance: 84 },
-  { month: "Apr", attendance: 80 },
-  { month: "May", attendance: 92 },
-  { month: "Jun", attendance: 88 },
-];
-
-const taskCompletionTrend = [
-  { month: "Jan", completed: 18 },
-  { month: "Feb", completed: 25 },
-  { month: "Mar", completed: 31 },
-  { month: "Apr", completed: 36 },
-  { month: "May", completed: 42 },
-  { month: "Jun", completed: 48 },
-];
-
-const attendanceReport = [
-  {
-    name: "Rohan Patil",
-    present: 22,
-    absent: 2,
-    leave: 1,
-  },
-  {
-    name: "Priya Sharma",
-    present: 20,
-    absent: 3,
-    leave: 2,
-  },
-  {
-    name: "Amit Kadam",
-    present: 18,
-    absent: 5,
-    leave: 2,
-  },
-];
-
-const performanceReport = [
-  {
-    name: "Rohan Patil",
-    assigned: 18,
-    completed: 16,
-    rate: "89%",
-  },
-  {
-    name: "Priya Sharma",
-    assigned: 15,
-    completed: 12,
-    rate: "80%",
-  },
-  {
-    name: "Amit Kadam",
-    assigned: 12,
-    completed: 8,
-    rate: "67%",
-  },
-];
+const statIcons = {
+  totalInterns: Users,
+  activeInterns: UserCheck,
+  attendancePercentage: CalendarCheck,
+  completedTasks: CheckCircle2,
+};
 
 export default function ReportsPage() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchReports = async () => {
+    try {
+      const res = await fetch("/api/reports");
+      const result = await res.json();
+      setData(result);
+    } catch (error) {
+      console.log("Reports fetch error:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  if (loading) {
+    return (
+      <DashboardLayout title="Reports">
+        <p className="text-slate-500">Loading reports...</p>
+      </DashboardLayout>
+    );
+  }
+
+  const stats = [
+    {
+      key: "totalInterns",
+      title: "Total Interns",
+      value: data?.stats?.totalInterns || 0,
+    },
+    {
+      key: "activeInterns",
+      title: "Active Interns",
+      value: data?.stats?.activeInterns || 0,
+    },
+    {
+      key: "attendancePercentage",
+      title: "Attendance Rate",
+      value: `${data?.stats?.attendancePercentage || 0}%`,
+    },
+    {
+      key: "completedTasks",
+      title: "Completed Tasks",
+      value: data?.stats?.completedTasks || 0,
+    },
+  ];
+
   return (
     <DashboardLayout title="Reports">
       <div className="space-y-6">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {stats.map((item) => {
-            const Icon = item.icon;
+            const Icon = statIcons[item.key];
 
             return (
               <div
@@ -144,9 +119,9 @@ export default function ReportsPage() {
               Monthly attendance percentage
             </p>
 
-            <div className="mt-6 h-72">
+            <div className="mt-6 h-72 min-h-[288px]">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={attendanceTrend}>
+                <LineChart data={data?.attendanceTrend || []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
@@ -171,9 +146,9 @@ export default function ReportsPage() {
               Completed tasks month-wise
             </p>
 
-            <div className="mt-6 h-72">
+            <div className="mt-6 h-72 min-h-[288px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={taskCompletionTrend}>
+                <BarChart data={data?.taskCompletionTrend || []}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
                   <YAxis />
@@ -210,14 +185,27 @@ export default function ReportsPage() {
                 </thead>
 
                 <tbody>
-                  {attendanceReport.map((item) => (
-                    <tr key={item.name} className="border-b">
-                      <td className="py-4 font-medium">{item.name}</td>
-                      <td className="py-4 text-green-600">{item.present}</td>
-                      <td className="py-4 text-red-600">{item.absent}</td>
-                      <td className="py-4 text-yellow-600">{item.leave}</td>
+                  {data?.attendanceReport?.length > 0 ? (
+                    data.attendanceReport.map((item) => (
+                      <tr key={item.internId} className="border-b">
+                        <td className="py-4 font-medium">{item.name}</td>
+                        <td className="py-4 text-green-600">
+                          {item.present}
+                        </td>
+                        <td className="py-4 text-red-600">{item.absent}</td>
+                        <td className="py-4 text-yellow-600">{item.leave}</td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan="4"
+                        className="py-6 text-center text-slate-500"
+                      >
+                        No attendance report found.
+                      </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -243,18 +231,31 @@ export default function ReportsPage() {
                 </thead>
 
                 <tbody>
-                  {performanceReport.map((item) => (
-                    <tr key={item.name} className="border-b">
-                      <td className="py-4 font-medium">{item.name}</td>
-                      <td className="py-4">{item.assigned}</td>
-                      <td className="py-4 text-green-600">{item.completed}</td>
-                      <td className="py-4">
-                        <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
-                          {item.rate}
-                        </Badge>
+                  {data?.performanceReport?.length > 0 ? (
+                    data.performanceReport.map((item) => (
+                      <tr key={item.internId} className="border-b">
+                        <td className="py-4 font-medium">{item.name}</td>
+                        <td className="py-4">{item.assigned}</td>
+                        <td className="py-4 text-green-600">
+                          {item.completed}
+                        </td>
+                        <td className="py-4">
+                          <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100">
+                            {item.rate}%
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td
+                        colSpan="4"
+                        className="py-6 text-center text-slate-500"
+                      >
+                        No performance report found.
                       </td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>

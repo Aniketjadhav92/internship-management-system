@@ -11,25 +11,51 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("Admin");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    if (role === "Admin") {
-      if (email === "admin@internhub.com" && password === "admin123") {
-        setError("");
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          role,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Login failed");
+        setLoading(false);
+        return;
+      }
+
+      localStorage.setItem("token", data.token);
+localStorage.setItem("role", data.role);
+localStorage.setItem("userId", data.user.id);
+localStorage.setItem("userName", data.user.name);
+localStorage.setItem("userEmail", data.user.email);
+
+      if (data.role === "Admin") {
         router.push("/dashboard");
       } else {
-        setError("Invalid Admin Credentials");
+        router.push("/intern-dashboard");
       }
+    } catch (error) {
+      setError("Something went wrong");
     }
 
-    if (role === "Intern") {
-      if (email === "intern@internhub.com" && password === "intern123") {
-        setError("");
-        router.push("/intern-dashboard");
-      } else {
-        setError("Invalid Intern Credentials");
-      }
-    }
+    setLoading(false);
   };
 
   return (
@@ -49,7 +75,7 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="space-y-5">
+        <form onSubmit={handleLogin} className="space-y-5">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
               Email Address
@@ -61,6 +87,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full rounded-xl border px-4 py-3 outline-none focus:border-slate-900"
+              required
             />
           </div>
 
@@ -75,6 +102,7 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full rounded-xl border px-4 py-3 outline-none focus:border-slate-900"
+              required
             />
           </div>
 
@@ -100,12 +128,13 @@ export default function LoginPage() {
           )}
 
           <button
-            onClick={handleLogin}
-            className="w-full rounded-xl bg-slate-900 px-4 py-3 font-medium text-white hover:bg-slate-800"
+            type="submit"
+            disabled={loading}
+            className="w-full rounded-xl bg-slate-900 px-4 py-3 font-medium text-white hover:bg-slate-800 disabled:opacity-70"
           >
-            Login
+            {loading ? "Logging in..." : "Login"}
           </button>
-        </div>
+        </form>
 
         <p className="mt-6 text-center text-xs text-slate-400">
           Internship Management System
